@@ -113,7 +113,7 @@ export class Main implements Contract {
     async getDataContract(provider: ContractProvider) {
         const {stack} = await provider.get("get_contract_storage_data", []);
         return {
-            number: stack.readNumber(),
+            counter_value: stack.readNumber(),
             recent_sender: stack.readAddress(),
             owner_address: stack.readAddress()
         }
