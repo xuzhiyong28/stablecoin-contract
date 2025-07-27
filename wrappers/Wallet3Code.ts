@@ -47,6 +47,10 @@ export class Wallet3Code implements Contract {
     return new Wallet3Code(address, init);
   }
 
+  /***
+   * 获取seqNo
+   * @param provider
+   */
   async getSeqNo(provider: ContractProvider) {
     let state = await provider.getState();
     if(state.state.type === 'active') {

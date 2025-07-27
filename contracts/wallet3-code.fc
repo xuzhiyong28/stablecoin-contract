@@ -5,6 +5,7 @@
   ;; do nothing for internal messages
 }
 
+;; 接收外部消息
 () recv_external(slice in_msg) impure {
   var signature = in_msg~load_bits(512);
   var cs = in_msg;
