@@ -62,7 +62,7 @@ export async function run(provider: NetworkProvider) {
   await openedContract.sendTransfer(keyPair.secretKey, walletId, messages);
   // 发送的交易1: https://tonviewer.com/transaction/8e94a38ab68d7449839930adf33e61c33dfd628912eaae6f8976c1885517bb1a
   // 发送的交易2: https://tonviewer.com/transaction/b80b8951c811d64d761bd9aacaab2f42c9afa1d1cfc2eb8ee3779fcd283f1551
-  // 发送的交易3: https://tonviewer.com/transaction/140cc3b26077e875783d7b6f308f643d08a0ad3a2a7c5ef638118a9336f58001
+  // 发送的交易3-多message: https://tonviewer.com/transaction/140cc3b26077e875783d7b6f308f643d08a0ad3a2a7c5ef638118a9336f58001
   await provider.waitForDeploy(walletV3CodeContract.address);
   let seqNo2 = await openedContract.getSeqNo();
   console.log(`seqNo2 : ${seqNo2}`);
