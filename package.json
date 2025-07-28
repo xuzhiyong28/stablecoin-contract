@@ -41,5 +41,8 @@
     },
     "engines": {
         "node": ">=16.0.0"
+    },
+    "dependencies": {
+        "@tonkite/highload-wallet-v3": "^3.0.2"
     }
 }

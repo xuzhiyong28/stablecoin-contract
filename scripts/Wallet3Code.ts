@@ -4,7 +4,7 @@ import {Wallet3Code, Wallet3CodeContractConfig} from "../wrappers/Wallet3Code";
 import {mnemonicNew, mnemonicToWalletKey} from "@ton/crypto";
 import {internal} from "@ton/core/dist/types/_helpers";
 
-export async function run(provider: NetworkProvider) {
+async function test1(provider: NetworkProvider){
   console.log("\x1b[31m%s\x1b[0m", '============ 编译WalletV3R2合约 ================')
   const codeCell = await compile("Wallet3Code");
   const codeCellToBoc = codeCell.toBoc();
@@ -66,8 +66,25 @@ export async function run(provider: NetworkProvider) {
   await provider.waitForDeploy(walletV3CodeContract.address);
   let seqNo2 = await openedContract.getSeqNo();
   console.log(`seqNo2 : ${seqNo2}`);
+}
 
+async function test2(provider: NetworkProvider){
+  const codeCell = await compile("Wallet3Code");
+  const mnemonicArray = await mnemonicNew(24);
+  const keyPair = await mnemonicToWalletKey(mnemonicArray);
+  let config: Wallet3CodeContractConfig = {
+    workchain: 0,
+    publicKey: keyPair.publicKey
+  };
+  const walletV3CodeContract = Wallet3Code.createFromConfig(config, codeCell);
+  console.log(`钱包合约地址: ${walletV3CodeContract.address}`) // EQB6xibcGCSxXaG7igR5IMCLwPSGunZ-aJa55mf9ndfEzHfA
+  const openedContract = provider.open(walletV3CodeContract);
+  await openedContract.sendDeploy(provider.sender(), toNano('0.1'))
+  await provider.waitForDeploy(walletV3CodeContract.address);
+}
 
+export async function run(provider: NetworkProvider) {
+  await test2(provider);
 }
 
 

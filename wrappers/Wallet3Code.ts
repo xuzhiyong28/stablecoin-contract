@@ -5,7 +5,7 @@ import {
   Contract,
   contractAddress,
   ContractProvider,
-  MessageRelaxed,
+  MessageRelaxed, Sender,
   SendMode
 } from "@ton/core";
 import { Maybe } from "@ton/ton/dist/utils/maybe";
@@ -59,6 +59,15 @@ export class Wallet3Code implements Contract {
     } else {
       return 0;
     }
+  }
+
+  async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
+    await provider.internal(via, {
+      value: value,
+      bounce: false,
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: beginCell().endCell()
+    });
   }
 
   /***
