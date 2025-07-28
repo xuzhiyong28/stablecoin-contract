@@ -21,11 +21,12 @@ import { HighloadQueryId } from "./highload/HighloadQueryId";
 
 export const TIMESTAMP_SIZE = 64;
 export const TIMEOUT_SIZE = 22;
+
 export type HighloadWalletV3Config = {
   publicKey: Buffer,
   subwalletId: number,
   timeout: number
-}
+};
 
 export function highloadWalletV3ConfigToCell(config: HighloadWalletV3Config): Cell {
   return beginCell()
@@ -46,9 +47,8 @@ export class HighloadWalletV3 implements Contract {
 
   static createFromConfig(config: HighloadWalletV3Config, code: Cell, workchain = 0) {
     const data = highloadWalletV3ConfigToCell(config);
-    const init = { code, data };
-    const address = contractAddress(workchain, init);
-    return new HighloadWalletV3(address);
+    const init = {code, data};
+    return new HighloadWalletV3(contractAddress(workchain, init), init);
   }
 
   /***
@@ -59,10 +59,10 @@ export class HighloadWalletV3 implements Contract {
    */
   async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
     await provider.internal(via, {
-      value: value,
+      value,
       bounce: false,
       sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body: beginCell().endCell()
+      body: beginCell().endCell(),
     });
   }
 

@@ -28,16 +28,18 @@ async function deployContract(provider: NetworkProvider) {
   ]);
   console.log(`公钥: ${Buffer.from(keyPair.publicKey).toString('hex')}`)
   console.log(`私钥: ${Buffer.from(keyPair.secretKey).toString('hex')}`)
+  const highloadWalletV3 = provider.open(
+    HighloadWalletV3.createFromConfig(
+      {
+        publicKey: keyPair.publicKey,
+        subwalletId: SUBWALLET_ID,
+        timeout: DEFAULT_TIMEOUT,
+      },
+      codeCell,
+    ),
+  );
+  console.log(`高性能合约地址: ${highloadWalletV3.address}`) // EQBmrENXqFIRBHvIQEqwiFRAPFvMJQfrH6gmPtP5O3Z-SL9T - UQBmrENXqFIRBHvIQEqwiFRAPFvMJQfrH6gmPtP5O3Z-SOKW
+  //await highloadWalletV3.sendDeploy(provider.sender(), toNano('1'));
+  //await provider.waitForDeploy(highloadWalletV3.address, 10, 5);
 
-  const config: HighloadWalletV3Config = {
-    publicKey: keyPair.publicKey,
-    subwalletId: SUBWALLET_ID,
-    timeout: DEFAULT_TIMEOUT
-  }
-  const highV3CodeContract = HighloadWalletV3.createFromConfig(config, codeCell)
-  console.log(`高性能钱包合约地址: ${highV3CodeContract.address}`) // 部署后地址: EQBmrENXqFIRBHvIQEqwiFRAPFvMJQfrH6gmPtP5O3Z-SL9T
-  const openedContract = provider.open(highV3CodeContract);
-  // 部署
-  await openedContract.sendDeploy(provider.sender(), toNano('1'))
-  await provider.waitForDeploy(highV3CodeContract.address);
 }
