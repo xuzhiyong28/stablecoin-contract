@@ -64,6 +64,12 @@ export class Main implements Contract {
         })
     }
 
+    /***
+     * 存款交易
+     * @param provider
+     * @param sender
+     * @param value
+     */
     async sendDepositMessage(provider: ContractProvider, sender: Sender, value: bigint) {
         const msg_body = beginCell()
             .storeUint(2, 32) // op
@@ -75,6 +81,12 @@ export class Main implements Contract {
         });
     }
 
+    /***
+     * 不指定op操作类型交易
+     * @param provider
+     * @param sender
+     * @param value
+     */
     async sendNoOpDepositMessage(provider: ContractProvider, sender: Sender, value: bigint) {
         const msg_body = beginCell()
             //.storeUint(2, 32) // op
@@ -103,6 +115,10 @@ export class Main implements Contract {
     }
 
 
+    /***
+     * 获取一次发送者地址
+     * @param provider
+     */
     async getData(provider: ContractProvider) {
         const {stack} = await provider.get("get_the_latest_sender", []);
         return {
@@ -110,6 +126,10 @@ export class Main implements Contract {
         }
     }
 
+    /***
+     * 获取合约本地存储信息
+     * @param provider
+     */
     async getDataContract(provider: ContractProvider) {
         const {stack} = await provider.get("get_contract_storage_data", []);
         return {

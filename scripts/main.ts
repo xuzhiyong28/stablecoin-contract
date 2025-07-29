@@ -6,14 +6,14 @@ const deployedContractAddress = "EQAO2Vtp4YzVjLmO3a0iae_hXu9uyGmswnjMKjQwaP2CDcV
 
 export async function run(provider: NetworkProvider) {
   //await deployContract(provider);
-  await sendInternalMessage(provider);
+  await sendIncrementMessage(provider);
 }
 
 /***
- * 发送交易
+ * 发送自增交易
  * @param provider
  */
-async function sendInternalMessage(provider: NetworkProvider) {
+async function sendIncrementMessage(provider: NetworkProvider) {
   const myContract = Main.createFromAddress(Address.parse(deployedContractAddress));
   const openedContract = provider.open(myContract);
   await printData(openedContract);
@@ -25,6 +25,10 @@ async function sendInternalMessage(provider: NetworkProvider) {
   await printData(openedContract);
 }
 
+/***
+ * 打印参数
+ * @param openedContract
+ */
 async function printData(openedContract: OpenedContract<any>){
   let balance_res = await openedContract.getBalance();
   console.log(`balance : ${balance_res.balance}`)

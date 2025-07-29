@@ -25,11 +25,13 @@ const const::min_tons_for_storage = 10000000; ;; 合约保留的最小ton数量
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
-    slice sender_address = cs~load_msg_addr(); ;; 发送者地址
+    ;; 从消息体获取发送者地址
+    slice sender_address = cs~load_msg_addr();
+    ;; 从消息体获取op操作类型
     int op = in_msg_body~load_uint(32);
-
+    ;; 获取合约本地存储(合约部署时初始化)
     var (counter_value, recent_sender, owner_address) = load_data();
-
+    ;; 自增操作
     if(op == 1) {
         int increment_by = in_msg_body~load_uint(32);
         ;;slice ds = get_data().begin_parse();
@@ -39,26 +41,32 @@ const const::min_tons_for_storage = 10000000; ;; 合约保留的最小ton数量
         return();
     }
 
+    ;; 存款(没有任何逻辑,只负责接收Ton)
     if(op == 2) {
-        ;; 存款 无需做处理
         return();
     }
 
+    ;; 取款
     if(op == 3) {
-        ;; 取款
+        ;; 校验交易发送者是否管理员
         throw_unless(103, equal_slice_bits(sender_address, owner_address));
+        ;; 取款数量
         int withdraw_amount = in_msg_body~load_coins();
+        ;; 合约当前余额
         var [balance, _] = get_balance();
+        ;; 校验是否大于余额
         throw_unless(104, balance >= withdraw_amount);
+        ;; 保证合约预留最小数量,防止没租金
         int return_value = min(withdraw_amount, balance - const::min_tons_for_storage);
-        ;; 发送内部消息
-        int msg_mode = 1; ;; 信息模式 普通内部函数 + 单独支付转账费用
+        ;; PAY_GAS_SEPARATELY 消息模式
+        int msg_mode = 1;
         var msg = begin_cell()
             .store_uint(0x18, 6)
             .store_slice(sender_address)
-            .store_coins(return_value)
+            .store_coins(return_value)  ;; 代币数量
             .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
             .end_cell();
+        ;; 发送内部消息
         send_raw_message(msg, msg_mode);
         return ();
     }

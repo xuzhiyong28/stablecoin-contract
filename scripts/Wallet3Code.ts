@@ -6,6 +6,10 @@ import {Wallet3Code, Wallet3CodeContractConfig} from "../wrappers/Wallet3Code";
 import {mnemonicNew, mnemonicToWalletKey} from "@ton/crypto";
 import {internal} from "@ton/core/dist/types/_helpers";
 
+export async function run(provider: NetworkProvider) {
+  await test1(provider);
+}
+
 async function test1(provider: NetworkProvider){
   console.log("\x1b[31m%s\x1b[0m", '============ 编译WalletV3R2合约 ================')
   const codeCell = await compile("Wallet3Code");
@@ -85,9 +89,6 @@ async function test2(provider: NetworkProvider){
   await provider.waitForDeploy(walletV3CodeContract.address);
 }
 
-export async function run(provider: NetworkProvider) {
-  await test2(provider);
-}
 
 
 

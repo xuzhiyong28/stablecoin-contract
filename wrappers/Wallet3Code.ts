@@ -81,7 +81,7 @@ export class Wallet3Code implements Contract {
     let seqNo = await this.getSeqNo(provider);
     let message = createWalletTransferV3({
       seqno: seqNo,
-      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      sendMode: SendMode.PAY_GAS_SEPARATELY,  // 交易手续费（gas）从发送者的钱包中单独支付，不会从消息中转移的TON币中扣除手续费
       walletId: walletId,
       secretKey: secretKey,
       messages: messages

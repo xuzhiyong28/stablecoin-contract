@@ -1,28 +1,39 @@
 ;; Simple wallet smart contract
 #include "stdlib.fc";
 
+;; 接收内部消息方法
 () recv_internal(slice in_msg) impure {
   ;; do nothing for internal messages
 }
 
-;; 接收外部消息
+;; 接收外部消息方法
 () recv_external(slice in_msg) impure {
+  ;; 从消息体获取签名数据
   var signature = in_msg~load_bits(512);
   var cs = in_msg;
+  ;; 从消息体获取子账户ID, 时间戳, nonce
   var (subwallet_id, valid_until, msg_seqno) = (cs~load_uint(32), cs~load_uint(32), cs~load_uint(32));
+  ;; 判断时间戳是否正确
   throw_if(35, valid_until <= now());
+  ;; 从c4存储中获取部署合约时设置的子账户ID, 公钥, 自增nonce
   var ds = get_data().begin_parse();
   var (stored_seqno, stored_subwallet, public_key) = (ds~load_uint(32), ds~load_uint(32), ds~load_uint(256));
   ds.end_parse();
+  ;; 校验nonce
   throw_unless(33, msg_seqno == stored_seqno);
+  ;; 校验子账户
   throw_unless(34, subwallet_id == stored_subwallet);
+  ;; 校验签名
   throw_unless(35, check_signature(slice_hash(in_msg), signature, public_key));
+  ;; 校验没问题, 接收消息
   accept_message();
   cs~touch();
   while (cs.slice_refs()) {
     var mode = cs~load_uint(8);
+    ;; 往其他合约发送内部消息
     send_raw_message(cs~load_ref(), mode);
   }
+  ;; 更新nonce
   set_data(begin_cell()
     .store_uint(stored_seqno + 1, 32)
     .store_uint(stored_subwallet, 32)
@@ -31,7 +42,6 @@
 }
 
 ;; Get methods
-
 int seqno() method_id {
   return get_data().begin_parse().preload_uint(32);
 }
