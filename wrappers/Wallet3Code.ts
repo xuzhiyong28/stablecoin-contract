@@ -77,7 +77,7 @@ export class Wallet3Code implements Contract {
    * @param walletId
    * @param messages
    */
-  async sendTransfer(provider: ContractProvider, secretKey: Buffer, walletId: number, messages: MessageRelaxed[]) {
+  async sendTransferExternal(provider: ContractProvider, secretKey: Buffer, walletId: number, messages: MessageRelaxed[]) {
     let seqNo = await this.getSeqNo(provider);
     let message = createWalletTransferV3({
       seqno: seqNo,
