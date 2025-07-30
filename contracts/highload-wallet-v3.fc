@@ -26,8 +26,11 @@ const int TIMEOUT_SIZE = 22; ;; 2^22 / 60 / 60 / 24 - up to ~48 days
 const int CELL_BITS_SIZE = 1023;
 const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
 
+;; 接收内部消息方法
 () recv_internal(cell in_msg_full, slice in_msg_body) impure {
+    ;; 获取in_msg_body的长度body_bits和cell引用数量
     (int body_bits, int body_refs) = in_msg_body.slice_bits_refs();
+    ;; 引用数量不是1或者bit长度不是操作码+查询ID的总长度直接return,只接收Ton币
     ifnot ((body_refs == 1) & (body_bits == MSG_OP_SIZE + MSG_QUERY_ID_SIZE)) {
         return (); ;; just accept TONs
     }
@@ -40,17 +43,19 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
 
     slice sender_address = in_msg_full_slice~load_msg_addr();
 
-    ;; not from myself
+    ;; 消息发送者若不是highload wallet本身，也会被当作接收Ton不做其他处理
     if (~ sender_address.equal_slices_bits(my_address())) {
         return ();  ;; just accept TONs
     }
 
     int op = in_msg_body~load_op();
-
+    ;; 若 op 是 op::internal_transfer, 则进行打包的过程
     if (op == op::internal_transfer) {
         in_msg_body~skip_query_id();
         cell actions = in_msg_body.preload_ref();
+        ;; 防止actions包含set_code的操作，为了安全先将code拿出来后，执行逻辑后再set_code
         cell old_code = my_code();
+        ;; set_actions可以实现一次传送多笔交易, 使用上可以认为是send_raw_message的批量操作
         set_actions(actions);
         set_code(old_code); ;; prevent to change smart contract code
         return ();
@@ -59,10 +64,13 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
 
 () recv_external(slice msg_body) impure {
     cell msg_inner = msg_body~load_ref();
+    ;; 解析出signature签名(用于后面验签)
     slice signature = msg_body~load_bits(SIGNATURE_SIZE);
     msg_body.end_parse();
+    ;; 解析出消息hash(用于后面验签)
     int msg_inner_hash = msg_inner.cell_hash();
 
+    ;; 获取合约本地存储数据
     slice data_slice = get_data().begin_parse();
     int public_key = data_slice~load_uint(PUBLIC_KEY_SIZE);
     int subwallet_id = data_slice~load_uint(SUBWALLET_ID_SIZE);
@@ -79,7 +87,7 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
         }
         last_clean_time = now();
     }
-
+    ;; 验证签名
     throw_unless(error::invalid_signature, check_signature(msg_inner_hash, signature, public_key));
 
     slice msg_inner_slice = msg_inner.begin_parse();
@@ -91,10 +99,11 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
     int created_at = msg_inner_slice~load_uint(TIMESTAMP_SIZE);
     int _timeout  = msg_inner_slice~load_uint(TIMEOUT_SIZE);
     msg_inner_slice.end_parse();
-
+    ;; 验证消息中subwallet_id和合约存储的subwallet_id是否相同
     throw_unless(error::invalid_subwallet_id, _subwallet_id == subwallet_id);
+    ;; 验证消息中timeout和合约存储的timeout是否相同
     throw_unless(error::invalid_timeout, _timeout == timeout);
-
+    ;; 验证时间
     throw_unless(error::invalid_created_at, created_at > now() - timeout);
     throw_unless(error::invalid_created_at, created_at <= now());
 
@@ -115,11 +124,11 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
     } else {
         new_value = begin_cell().store_zeroes(bit_number).store_true().store_zeroes(CELL_BITS_SIZE - bit_number - 1);
     }
-
+    ;; 验证没问题，接收消息
     accept_message();
-
+    ;; 存储消息到queries变量
     queries~udict_set_ref(KEY_SIZE, shift, new_value.end_cell());
-
+    ;; 更新本地存储
     set_data(begin_cell()
         .store_uint(public_key, PUBLIC_KEY_SIZE)
         .store_uint(subwallet_id, SUBWALLET_ID_SIZE)
@@ -129,7 +138,7 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
         .store_uint(timeout, TIMEOUT_SIZE)
         .end_cell());
 
-
+    ;; 保证接下來的操作发生revert，先前更新的本地存储仍然会被保存，不会被回滾
     commit();
 
     ;; after commit, check the message to prevent an error in the action phase
@@ -152,7 +161,9 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
       body:(Either X ^X) = MessageRelaxed X;
     -}
 
+    ;; 接下去一系列的检查message_to_send字段以避免在 action phase时发生错误
     throw_if(error::invalid_message_to_send, message_slice~load_uint(1)); ;; int_msg_info$0
+    ;; 检查是否是回弹消息
     int msg_flags = message_slice~load_uint(3); ;; ihr_disabled:Bool bounce:Bool bounced:Bool
     if (is_bounced(msg_flags)) {
         return ();
