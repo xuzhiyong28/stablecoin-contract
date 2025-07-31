@@ -6,7 +6,23 @@ const deployedContractAddress = "EQAO2Vtp4YzVjLmO3a0iae_hXu9uyGmswnjMKjQwaP2CDcV
 
 export async function run(provider: NetworkProvider) {
   //await deployContract(provider);
-  await sendIncrementMessage(provider);
+  //await sendIncrementMessage(provider);
+  await sendWithdrawalMessage(provider);
+}
+
+/***
+ * 取款
+ * @param provider
+ */
+async function sendWithdrawalMessage(provider: NetworkProvider) {
+  const myContract = Main.createFromAddress(Address.parse(deployedContractAddress));
+  const openedContract = provider.open(myContract);
+  await printData(openedContract);
+  await openedContract.sendWithdrawalMessage(provider.sender(), toNano("0.001"), toNano("0.03"));
+  // 交易1: https://tonviewer.com/transaction/a905c1e181a23c78a09534095bf12eb2df611d19730b7f0dd94ccc14db36c55b
+  // 交易2(取款金额不足,交易回弹): https://tonviewer.com/transaction/a905c1e181a23c78a09534095bf12eb2df611d19730b7f0dd94ccc14db36c55b
+  await provider.waitForDeploy(myContract.address);
+  await printData(openedContract);
 }
 
 /***
@@ -19,9 +35,8 @@ async function sendIncrementMessage(provider: NetworkProvider) {
   await printData(openedContract);
 
   await openedContract.sendIncrementMessage(provider.sender(), toNano("0.005"), 1);
-
   await provider.waitForDeploy(myContract.address)
-  console.log("=============================== 发送自增交易 ===============================") // https://tonviewer.com/transaction/53715574fdbbd870e49ff0e77de61efb94185c5b77911c9aa83a8a643574d803
+  // 自增交易: https://tonviewer.com/transaction/53715574fdbbd870e49ff0e77de61efb94185c5b77911c9aa83a8a643574d803
   await printData(openedContract);
 }
 
