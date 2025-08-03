@@ -79,7 +79,10 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
     int last_clean_time = data_slice~load_uint(TIMESTAMP_SIZE);
     int timeout = data_slice~load_uint(TIMEOUT_SIZE);
     data_slice.end_parse();
-
+    ;; 使用queries + old_queries 实现防重请求
+    ;; 当前时间 > last_clean_time + timeout : queries → old_queries 并清空old_queries
+    ;; 当前时间 > last_clean_time + 2 * timeout : 清空 old_queries
+    ;; 为何要用2个dict, 保证请求在2 * timeout 秒内都不能重放
     if (last_clean_time < (now() - timeout)) {
         (old_queries, queries) = (queries, null());
         if (last_clean_time < (now() - (timeout * 2))) {
@@ -106,14 +109,17 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
     ;; 验证时间
     throw_unless(error::invalid_created_at, created_at > now() - timeout);
     throw_unless(error::invalid_created_at, created_at <= now());
-
+    ;; 检查 old_queries 如果这个 shift 存在，并且 bit_number 位 = 1 → 说明在上一个窗口已经执行过 → 拒绝
     (cell value, int found) = old_queries.udict_get_ref?(KEY_SIZE, shift);
     if (found) {
         slice value_slice = value.begin_parse();
         value_slice~skip_bits(bit_number);
         throw_if(error::already_executed, value_slice.preload_int(1));
     }
-
+    ;; 检查 queries
+    ;; 1.如果 shift 存在，并且 bit_number 位 = 1 → 说明在当前窗口已经执行过 → 拒绝
+    ;; 2. 如果 shift 不存在，或者标志位是 0 → 可以执行，但要把标志位改成 1
+    ;; 疑问点: 为何不用精确时间戳的方式判断?  节省gas, 记录dict只需1位，记录时间戳需要好几位
     (cell value, int found) = queries.udict_get_ref?(KEY_SIZE, shift);
     builder new_value = null();
     if (found) {
@@ -144,23 +150,6 @@ const int BIT_NUMBER_SIZE = 10; ;; 2^10 = 1024
     ;; after commit, check the message to prevent an error in the action phase
 
     slice message_slice = message_to_send.begin_parse();
-    {-
-       https://github.com/ton-blockchain/ton/blob/8a9ff339927b22b72819c5125428b70c406da631/crypto/block/block.tlb#L123C1-L124C33
-       currencies$_ grams:Grams other:ExtraCurrencyCollection = CurrencyCollection;
-       extra_currencies$_ dict:(HashmapE 32 (VarUInteger 32)) = ExtraCurrencyCollection;
-
-       https://github.com/ton-blockchain/ton/blob/8a9ff339927b22b72819c5125428b70c406da631/crypto/block/block.tlb#L135
-       int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
-       src:MsgAddress dest:MsgAddressInt
-       value:CurrencyCollection ihr_fee:Grams fwd_fee:Grams
-       created_lt:uint64 created_at:uint32 = CommonMsgInfoRelaxed;
-
-      https://github.com/ton-blockchain/ton/blob/8a9ff339927b22b72819c5125428b70c406da631/crypto/block/block.tlb#L155
-      message$_ {X:Type} info:CommonMsgInfoRelaxed
-      init:(Maybe (Either StateInit ^StateInit))
-      body:(Either X ^X) = MessageRelaxed X;
-    -}
-
     ;; 接下去一系列的检查message_to_send字段以避免在 action phase时发生错误
     throw_if(error::invalid_message_to_send, message_slice~load_uint(1)); ;; int_msg_info$0
     ;; 检查是否是回弹消息
