@@ -4,6 +4,7 @@ import { compile, NetworkProvider } from "@ton/blueprint";
 import { addressToString, assert, base64toCell, jettonWalletCodeFromLibrary } from "../wrappers/ui-utils";
 import { Address } from "@ton/core/dist/address/Address";
 import { toUnits } from "./units";
+import { checkJettonMinter } from "./JettonMinterChecker";
 
 const deployedContractAddress = "EQC9DMjXYRkkljawkvsLASI5-rn4Ce_o1f3OSh2TJcKh3G9i";
 
@@ -49,6 +50,10 @@ async function deployJettonMint(provider: NetworkProvider) {
   await provider.waitForDeploy(openContract.address);
 }
 
+/***
+ * mint 交易
+ * @param provider
+ */
 async function mint(provider: NetworkProvider) {
   let jettonMinter = JettonMinter.createFromAddress(Address.parse(deployedContractAddress));
   const openContract = provider.open(jettonMinter);
@@ -57,7 +62,7 @@ async function mint(provider: NetworkProvider) {
   console.assert(result.status === "active", "Contract not active");
   console.assert(base64toCell(result.code).equals(await compile("JettonMinter")), "wrong code");
   console.log(`contract balance : ${result.balance}`)
-
+  // mint 10000XZY 到 destinationAddress
   const amount = toUnits("10000", 6);
   const destinationAddress = "UQCSOoc8TPYbwS-zOM6t9R5Msrw7P-dhL_ghgVP2o1A-2j3u";
   await openContract.sendMint(provider.sender(), Address.parse(destinationAddress), amount);
@@ -65,4 +70,19 @@ async function mint(provider: NetworkProvider) {
   await provider.waitForDeploy(openContract.address);
 }
 
+/***
+ * 打印合约信息
+ * @param provider
+ */
+async function showJettonMinterInfo(provider: NetworkProvider){
+  const ui = provider.ui();
+  const jettonMinterCode = await compile('JettonMinter');
+  const jettonWalletCodeRaw = await compile('JettonWallet');
+  const jettonWalletCode = jettonWalletCodeFromLibrary(jettonWalletCodeRaw);
+  try {
+    await checkJettonMinter(Address.parseFriendly(deployedContractAddress), jettonMinterCode, jettonWalletCode, provider, ui, false, false);
+  } catch (e: any) {
+    return;
+  }
+}
 
