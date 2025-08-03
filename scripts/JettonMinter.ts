@@ -6,7 +6,7 @@ import { Address } from "@ton/core/dist/address/Address";
 import { toUnits } from "./units";
 import { checkJettonMinter } from "./JettonMinterChecker";
 
-const deployedContractAddress = "EQC9DMjXYRkkljawkvsLASI5-rn4Ce_o1f3OSh2TJcKh3G9i";
+const deployedMinterContractAddress = "EQC9DMjXYRkkljawkvsLASI5-rn4Ce_o1f3OSh2TJcKh3G9i";
 
 const sendToIndex = async (method: string, params: any) => {
   const mainnetRpc = 'https://toncenter.com/api/v3/';
@@ -22,7 +22,8 @@ const sendToIndex = async (method: string, params: any) => {
 
 export async function run(provider: NetworkProvider) {
   //await deployJettonMint(provider);
-  await mint(provider);
+  //await mint(provider);
+  await getWalletAddress(provider);
 }
 
 /***
@@ -55,10 +56,10 @@ async function deployJettonMint(provider: NetworkProvider) {
  * @param provider
  */
 async function mint(provider: NetworkProvider) {
-  let jettonMinter = JettonMinter.createFromAddress(Address.parse(deployedContractAddress));
+  let jettonMinter = JettonMinter.createFromAddress(Address.parse(deployedMinterContractAddress));
   const openContract = provider.open(jettonMinter);
   // 检查合约是否部署
-  const result = await sendToIndex("account", { address: deployedContractAddress })
+  const result = await sendToIndex("account", { address: deployedMinterContractAddress })
   console.assert(result.status === "active", "Contract not active");
   console.assert(base64toCell(result.code).equals(await compile("JettonMinter")), "wrong code");
   console.log(`contract balance : ${result.balance}`)
@@ -80,9 +81,21 @@ async function showJettonMinterInfo(provider: NetworkProvider){
   const jettonWalletCodeRaw = await compile('JettonWallet');
   const jettonWalletCode = jettonWalletCodeFromLibrary(jettonWalletCodeRaw);
   try {
-    await checkJettonMinter(Address.parseFriendly(deployedContractAddress), jettonMinterCode, jettonWalletCode, provider, ui, false, false);
+    await checkJettonMinter(Address.parseFriendly(deployedMinterContractAddress), jettonMinterCode, jettonWalletCode, provider, ui, false, false);
   } catch (e: any) {
     return;
   }
+}
+
+/***
+ * 获取owner对应的jetton wallet地址
+ * @param provider
+ */
+async function getWalletAddress(provider: NetworkProvider){
+  let jettonMinter = JettonMinter.createFromAddress(Address.parse(deployedMinterContractAddress));
+  const openContract = provider.open(jettonMinter);
+  const ownerAddress = Address.parse("UQCSOoc8TPYbwS-zOM6t9R5Msrw7P-dhL_ghgVP2o1A-2j3u");
+  const jettionWalletAddress = await openContract.getWalletAddress(ownerAddress);
+  console.log(jettionWalletAddress);  // XZY代币对应的wallet address: EQASWiqCFd-nWmOsD0PEagcEmK19L6Q541vgJsM-XMr36pTu
 }
 

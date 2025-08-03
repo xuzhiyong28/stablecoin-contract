@@ -139,18 +139,22 @@ export class JettonMinter implements Contract {
   }
 
   static mintMessage(to: Address, jetton_amount: bigint, from?: Address | null, response?: Address | null, customPayload?: Cell | null, forward_ton_amount: bigint = 0n, total_ton_amount: bigint = 0n) {
-    const mintMsg = beginCell().storeUint(Op.internal_transfer, 32)
-      .storeUint(0, 64)
-      .storeCoins(jetton_amount)
-      .storeAddress(from)
-      .storeAddress(response)
-      .storeCoins(forward_ton_amount)
-      .storeMaybeRef(customPayload)
-      .endCell();
-    return beginCell().storeUint(Op.mint, 32).storeUint(0, 64) // op, queryId
-      .storeAddress(to)
-      .storeCoins(total_ton_amount)
-      .storeRef(mintMsg)
+    return beginCell()
+      .storeUint(Op.mint, 32) // mint 操作类型
+      .storeUint(0, 64) // queryId
+      .storeAddress(to) // to wallet 地址
+      .storeCoins(total_ton_amount) // 携带的ton数量
+      .storeRef(
+          beginCell()
+            .storeUint(Op.internal_transfer, 32) // 内部转账 操作类型
+            .storeUint(0, 64) // queryId
+            .storeCoins(jetton_amount)  // mint jetton amount
+            .storeAddress(from) // 传空
+            .storeAddress(response)
+            .storeCoins(forward_ton_amount)
+            .storeMaybeRef(customPayload)
+          .endCell()
+      )
       .endCell();
   }
 
@@ -197,7 +201,8 @@ export class JettonMinter implements Contract {
                  from?: Address | null,
                  response_addr?: Address | null,
                  customPayload?: Cell | null,
-                 forward_ton_amount: bigint = toNano("0.05"), total_ton_amount: bigint = toNano("0.1")) {
+                 forward_ton_amount: bigint = toNano("0.05"),
+                 total_ton_amount: bigint = toNano("0.1")) {
     await provider.internal(via, {
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: JettonMinter.mintMessage(to, jetton_amount, from, response_addr, customPayload, forward_ton_amount, total_ton_amount),

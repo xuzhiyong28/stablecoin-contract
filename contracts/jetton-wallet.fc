@@ -41,19 +41,25 @@
     ;; see transfer TL-B layout in jetton.tlb
     int query_id = in_msg_body~load_query_id();
     int jetton_amount = in_msg_body~load_coins();
+    ;; to owner 地址
     slice to_owner_address = in_msg_body~load_msg_addr();
     check_same_workchain(to_owner_address);
     (int status, int balance, slice owner_address, slice jetton_master_address) = load_data();
+    ;; 判断发送者是不是jetton minter 地址
     int is_from_master = equal_slices_bits(jetton_master_address, sender_address);
+    ;; 该jetton wallet是否是锁定状态
     int outgoing_transfers_unlocked = ((status & 1) == 0);
+    ;; 保证钱包在被锁定时只有 master 合约能操作
     throw_unless(error::contract_locked, outgoing_transfers_unlocked | is_from_master);
     throw_unless(error::not_owner, equal_slices_bits(owner_address, sender_address) | is_from_master);
-
+    ;; 扣除代币
     balance -= jetton_amount;
     throw_unless(error::balance_error, balance >= 0);
-
+    ;; 计算to owner的初始化init数据
     cell state_init = calculate_jetton_wallet_state_init(to_owner_address, jetton_master_address, my_code());
+    ;; 计算to owner的jetton wallet地址
     slice to_wallet_address = calculate_jetton_wallet_address(state_init);
+    ;; from owner地址 用来后面执行通知
     slice response_address = in_msg_body~load_msg_addr();
     in_msg_body~skip_maybe_ref(); ;; custom_payload
     int forward_ton_amount = in_msg_body~load_coins();
@@ -102,7 +108,7 @@
         equal_slices_bits(calculate_user_jetton_wallet_address(from_address, jetton_master_address, my_code()), sender_address)
     );
     int forward_ton_amount = in_msg_body~load_coins();
-
+    ;; 发送transfer_notification消息
     if (forward_ton_amount) {
         slice either_forward_payload = in_msg_body;
 
@@ -125,12 +131,14 @@
 
         send_raw_message(msg, SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
     }
-
+    ;; 多余的TON币返还
     if (~ is_address_none(response_address)) {
         int to_leave_on_balance = my_ton_balance - msg_value + my_storage_due();
         raw_reserve(max(to_leave_on_balance, calculate_jetton_wallet_min_storage_fee()), RESERVE_AT_MOST);
 
         ;; build MessageRelaxed, see TL-B layout in stdlib.fc#L733
+        ;; SEND_MODE_CARRY_ALL_BALANCE : 把当前合约的全部余额（减去执行本条消息需要的gas费用）都转到这条消息中发送给目标地址
+        ;; SEND_MODE_IGNORE_ERRORS 忽略失败回滚
         cell msg = begin_cell()
         .store_msg_flags_and_address_none(NON_BOUNCEABLE)
         .store_slice(response_address)
@@ -192,6 +200,7 @@
     save_data(status, balance + jetton_amount, owner_address, jetton_master_address);
 }
 
+;; 内部消息处理方法
 () recv_internal(int my_ton_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     slice in_msg_full_slice = in_msg_full.begin_parse();
     int msg_flags = in_msg_full_slice~load_msg_flags();

@@ -79,10 +79,10 @@ export class JettonWallet implements Contract {
                            customPayload: Cell | null,
                            forward_ton_amount: bigint,
                            forwardPayload: Cell | null) {
-
-        return beginCell().storeUint(Op.transfer, 32).storeUint(0, 64) // op, queryId
+        return beginCell().storeUint(Op.transfer, 32) // op
+                          .storeUint(0, 64) // queryId
                           .storeCoins(jetton_amount)
-                          .storeAddress(to)
+                          .storeAddress(to) // to owner地址
                           .storeAddress(responseAddress)
                           .storeMaybeRef(customPayload)
                           .storeCoins(forward_ton_amount)
@@ -91,7 +91,8 @@ export class JettonWallet implements Contract {
     }
     async sendTransfer(provider: ContractProvider, via: Sender,
                               value: bigint,
-                              jetton_amount: bigint, to: Address,
+                              jetton_amount: bigint,
+                              to: Address,
                               responseAddress:Address,
                               customPayload: Cell | null,
                               forward_ton_amount: bigint,

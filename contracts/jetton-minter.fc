@@ -35,15 +35,18 @@
 }
 
 () send_to_jetton_wallet(slice to_address, cell jetton_wallet_code, int ton_amount, cell master_msg, int need_state_init) impure inline {
+    ;; minter合约需预留1个TON
     raw_reserve(ONE_TON, RESERVE_REGULAR); ;; reserve for storage fees
-
+    ;; 计算to wallet 对应的 jetton wallet地址
     cell state_init = calculate_jetton_wallet_state_init(to_address, my_address(), jetton_wallet_code);
     slice to_wallet_address = calculate_jetton_wallet_address(state_init);
 
-    ;; build MessageRelaxed, see TL-B layout in stdlib.fc#L733
+    ;; 构建发送给jetton wallet合约的内部消息
+    ;; store_msg_flags_and_address_none(BOUNCEABLE) 设置通用内部消息参数
+    ;; store_statinit_ref_and_body_ref(state_init, master_msg) 设置 init/body等数据
     var msg = begin_cell()
     .store_msg_flags_and_address_none(BOUNCEABLE)
-    .store_slice(to_wallet_address) ;; dest
+    .store_slice(to_wallet_address)
     .store_coins(ton_amount);
 
     if (need_state_init) {
@@ -51,7 +54,8 @@
     } else {
         msg = msg.store_only_body_ref(master_msg);
     }
-
+    ;; SEND_MODE_PAY_FEES_SEPARATELY -> 发送消息时，Gas费用由消息中的 TON 单独支付，而不是从合约余额中扣
+    ;; SEND_MODE_BOUNCE_ON_ACTION_FAIL -> 如果该消息执行的 Action Phase 失败，消息将被“弹回”（bounce）给发送方
     send_raw_message(msg.end_cell(), SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
 }
 
@@ -59,7 +63,8 @@
     slice in_msg_full_slice = in_msg_full.begin_parse();
     int msg_flags = in_msg_full_slice~load_msg_flags();
 
-    if (msg_flags & 1) { ;; is bounced 是否是回滚消息
+    ;; is bounced 是否是回滚消息
+    if (msg_flags & 1) {
         in_msg_body~skip_bounced_prefix();
         ;; process only mint bounces
         ifnot (in_msg_body~load_op() == op::internal_transfer) {
@@ -71,33 +76,38 @@
         save_data(total_supply - jetton_amount, admin_address, next_admin_address, jetton_wallet_code, metadata_uri);
         return ();
     }
+    ;; 发送者地址
     slice sender_address = in_msg_full_slice~load_msg_addr();
+    ;; fwd_fee
     int fwd_fee_from_in_msg = in_msg_full_slice~retrieve_fwd_fee();
     int fwd_fee = get_original_fwd_fee(MY_WORKCHAIN, fwd_fee_from_in_msg); ;; we use message fwd_fee for estimation of forward_payload costs
 
     (int op, int query_id) = in_msg_body~load_op_and_query_id();
-
+    ;; 从合约存储获取 total_supply(代币总量),  admin_address(管理者地址), jetton_wallet_code(jetton wallet 合约code)
     (int total_supply, slice admin_address, slice next_admin_address, cell jetton_wallet_code, cell metadata_uri) = load_data();
 
     if (op == op::mint) {
         throw_unless(error::not_owner, equal_slices_bits(sender_address, admin_address));
+        ;; to wallet 地址
         slice to_address = in_msg_body~load_msg_addr();
+        ;; 检查 to wallet 地址
         check_same_workchain(to_address);
+        ;; 携带的ton数量
         int ton_amount = in_msg_body~load_coins();
+        ;; 操作类型是internal_transfer的body
         cell master_msg = in_msg_body~load_ref();
         in_msg_body.end_parse();
-
         ;; see internal_transfer TL-B layout in jetton.tlb
         slice master_msg_slice = master_msg.begin_parse();
         throw_unless(error::invalid_op, master_msg_slice~load_op() == op::internal_transfer);
         master_msg_slice~skip_query_id();
         int jetton_amount = master_msg_slice~load_coins();
-        master_msg_slice~load_msg_addr(); ;; from_address
-        master_msg_slice~load_msg_addr(); ;; response_address
+        master_msg_slice~load_msg_addr(); ;; from_address, 跳过
+        master_msg_slice~load_msg_addr(); ;; response_address, 跳过
         int forward_ton_amount = master_msg_slice~load_coins(); ;; forward_ton_amount
         check_either_forward_payload(master_msg_slice); ;; either_forward_payload
 
-        ;; a little more than needed, it’s ok since it’s sent by the admin and excesses will return back
+        ;; 检查携带的ton数量足够支付后续的transfer_notification和转发手续费
         check_amount_is_enough_to_transfer(ton_amount, forward_ton_amount, fwd_fee);
 
         send_to_jetton_wallet(to_address, jetton_wallet_code, ton_amount, master_msg, TRUE);
