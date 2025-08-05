@@ -74,22 +74,21 @@ export class JettonWallet implements Contract {
         let res = await provider.get('get_status', []);
         return res.stack.readNumber();
     }
-    static transferMessage(jetton_amount: bigint, to: Address,
-                           responseAddress:Address | null,
-                           customPayload: Cell | null,
-                           forward_ton_amount: bigint,
-                           forwardPayload: Cell | null) {
+    static transferMessage(jetton_amount: bigint, to: Address, responseAddress:Address | null, customPayload: Cell | null, forward_ton_amount: bigint, forwardPayload: Cell | null) {
         return beginCell().storeUint(Op.transfer, 32) // op
                           .storeUint(0, 64) // queryId
-                          .storeCoins(jetton_amount)
+                          .storeCoins(jetton_amount)    // 携带的jetton数量
                           .storeAddress(to) // to owner地址
-                          .storeAddress(responseAddress)
+                          .storeAddress(responseAddress) // 退回剩余Ton余额的接收地址
                           .storeMaybeRef(customPayload)
                           .storeCoins(forward_ton_amount)
                           .storeMaybeRef(forwardPayload)
                .endCell();
     }
-    async sendTransfer(provider: ContractProvider, via: Sender,
+
+
+    async sendTransfer(provider: ContractProvider,
+                              via: Sender,
                               value: bigint,
                               jetton_amount: bigint,
                               to: Address,
@@ -99,8 +98,8 @@ export class JettonWallet implements Contract {
                               forwardPayload: Cell | null) {
         await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
+            value:value,
             body: JettonWallet.transferMessage(jetton_amount, to, responseAddress, customPayload, forward_ton_amount, forwardPayload),
-            value:value
         });
 
     }

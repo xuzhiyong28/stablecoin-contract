@@ -37,6 +37,11 @@
     set_data(pack_jetton_wallet_data(status, balance, owner_address, jetton_master_address));
 }
 
+;; 处理 op::transfer 操作类型事件
+;; in_msg_body : 内部消息body
+;; sender_address : from owner address
+;; msg_value : 携带的Ton数量
+;; fwd_fee : 转发消息所需的费用
 () send_jettons(slice in_msg_body, slice sender_address, int msg_value, int fwd_fee) impure inline_ref {
     ;; see transfer TL-B layout in jetton.tlb
     int query_id = in_msg_body~load_query_id();
@@ -68,13 +73,13 @@
 
     ;; see internal TL-B layout in jetton.tlb
     cell msg_body = begin_cell()
-    .store_op(op::internal_transfer)
-    .store_query_id(query_id)
-    .store_coins(jetton_amount)
-    .store_slice(owner_address)
-    .store_slice(response_address)
-    .store_coins(forward_ton_amount)
-    .store_slice(either_forward_payload)
+            .store_op(op::internal_transfer)
+            .store_query_id(query_id)
+            .store_coins(jetton_amount)
+            .store_slice(owner_address)
+            .store_slice(response_address)
+            .store_coins(forward_ton_amount)
+            .store_slice(either_forward_payload)
     .end_cell();
 
     ;; build MessageRelaxed, see TL-B layout in stdlib.fc#L733
@@ -92,13 +97,16 @@
     save_data(status, balance, owner_address, jetton_master_address);
 }
 
+;; 接收jetton代币处理方法
 () receive_jettons(slice in_msg_body, slice sender_address, int my_ton_balance, int msg_value) impure inline_ref {
     (int status, int balance, slice owner_address, slice jetton_master_address) = load_data();
+    ;; 从合约存储中获取status判断合约是否被锁定
     int incoming_transfers_locked = ((status & 2) == 2);
     throw_if(error::contract_locked, incoming_transfers_locked);
     ;; see internal TL-B layout in jetton.tlb
     int query_id = in_msg_body~load_query_id();
     int jetton_amount = in_msg_body~load_coins();
+    ;; 增加代币数量
     balance += jetton_amount;
     slice from_address = in_msg_body~load_msg_addr();
     slice response_address = in_msg_body~load_msg_addr();
@@ -210,11 +218,10 @@
     }
     slice sender_address = in_msg_full_slice~load_msg_addr();
     int fwd_fee_from_in_msg = in_msg_full_slice~retrieve_fwd_fee();
-    int fwd_fee = get_original_fwd_fee(MY_WORKCHAIN, fwd_fee_from_in_msg); ;; we use message fwd_fee for estimation of forward_payload costs
+    int fwd_fee = get_original_fwd_fee(MY_WORKCHAIN, fwd_fee_from_in_msg);
 
     int op = in_msg_body~load_op();
 
-    ;; outgoing transfer
     if (op == op::transfer) {
         send_jettons(in_msg_body, sender_address, msg_value, fwd_fee);
         return ();

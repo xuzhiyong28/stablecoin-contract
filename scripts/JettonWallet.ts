@@ -13,20 +13,23 @@ export async function run(provider: NetworkProvider) {
   await sendWalletTransfer(provider);
 }
 
+/***
+ * 发送交易
+ * @param provider
+ */
 async function sendWalletTransfer(provider: NetworkProvider){
   const jettonWalletContract = JettonWallet.createFromAddress(Address.parse(fromJettonWalletContractAddress));
   const openedContract = provider.open(jettonWalletContract);
   const jettonBalance =  await openedContract.getJettonBalance();
   console.log(`代币余额: ${jettonBalance}`)
-
-  const fromOwnerAddress = Address.parse("UQCSOoc8TPYbwS-zOM6t9R5Msrw7P-dhL_ghgVP2o1A-2j3u");
+  const responseAddress = Address.parse("UQCSOoc8TPYbwS-zOM6t9R5Msrw7P-dhL_ghgVP2o1A-2j3u");
   const toOwnerAddress = Address.parse("UQCGe5hXBUGxsr9fatq2IuolGPwNMqdR7BTvNlGSzL_C_Fna");
   await openedContract.sendTransfer(
     provider.sender(),
     toNano('0.5'),
     100n,
     toOwnerAddress,
-    fromOwnerAddress,
+    responseAddress,
     null,
     toNano('0.05'),
     null);
