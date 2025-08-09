@@ -325,10 +325,18 @@ export class JettonMinter implements Contract {
   }
 
   static lockWalletMessage(lock_address: Address, lock: number, amount: bigint, query_id: bigint | number = 0) {
-    return beginCell().storeUint(Op.call_to, 32).storeUint(query_id, 64)
+    return beginCell()
+      .storeUint(Op.call_to, 32)
+      .storeUint(query_id, 64)
       .storeAddress(lock_address)
       .storeCoins(amount)
-      .storeRef(beginCell().storeUint(Op.set_status, 32).storeUint(query_id, 64).storeUint(lock, 4).endCell())
+      .storeRef(
+        beginCell()
+          .storeUint(Op.set_status, 32)
+          .storeUint(query_id, 64)
+          .storeUint(lock, 4)
+        .endCell()
+      )
       .endCell();
   }
 

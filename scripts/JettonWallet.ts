@@ -1,16 +1,16 @@
 import { toNano } from "@ton/core";
-import { JettonMinter } from "../wrappers/JettonMinter";
+import { endParse, JettonMinter } from "../wrappers/JettonMinter";
 import { compile, NetworkProvider } from "@ton/blueprint";
 import { addressToString, assert, base64toCell, jettonWalletCodeFromLibrary } from "../wrappers/ui-utils";
 import { Address } from "@ton/core/dist/address/Address";
 import { toUnits } from "./units";
 import { JettonWallet } from "../wrappers/JettonWallet";
 
-const deployedMinterContractAddress = "EQC9DMjXYRkkljawkvsLASI5-rn4Ce_o1f3OSh2TJcKh3G9i";
 const fromJettonWalletContractAddress = "EQASWiqCFd-nWmOsD0PEagcEmK19L6Q541vgJsM-XMr36pTu";
 
 export async function run(provider: NetworkProvider) {
-  await sendWalletTransfer(provider);
+  //await sendWalletTransfer(provider);
+  await showJettonWalletInfo(provider);
 }
 
 /***
@@ -35,5 +35,38 @@ async function sendWalletTransfer(provider: NetworkProvider){
     null);
     // 交易1: https://tonviewer.com/transaction/87033c96a3b42e88cd6a7836f2898d58990026750f9ec2d08cbac029cf7300f2
   await provider.waitForDeploy(openedContract.address);
+}
 
+/***
+ * 打印jetton wallet钱包信息
+ * @param provider
+ */
+async function showJettonWalletInfo(provider: NetworkProvider) {
+  const jettonWalletContract = JettonWallet.createFromAddress(Address.parse(fromJettonWalletContractAddress));
+  const openedContract = provider.open(jettonWalletContract);
+  const result = await sendToIndex("account", { address: fromJettonWalletContractAddress })
+  console.assert(result.status === "active", "Contract not active");
+  const dataCell = base64toCell(result.data);
+  const sc = dataCell.beginParse();
+  console.log(`status : ${sc.loadUint(4)}`);
+  console.log(`balance : ${sc.loadCoins()}`);
+  console.log(`ownerAddress : ${sc.loadAddress()}`);
+  console.log(`jettonMasterAddress : ${sc.loadAddress()}`);
+  endParse(sc);
+
+  const walletData = await openedContract.getWalletData();
+  console.log(`walletData : ${JSON.stringify(walletData)}`)
+}
+
+
+const sendToIndex = async (method: string, params: any) => {
+  const mainnetRpc = 'https://toncenter.com/api/v3/';
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  const response = await fetch(mainnetRpc + method + '?' + new URLSearchParams(params), {
+    method: 'GET',
+    headers: headers,
+  });
+  return response.json();
 }

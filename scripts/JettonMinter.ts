@@ -1,5 +1,5 @@
 import { toNano } from "@ton/core";
-import { JettonMinter } from "../wrappers/JettonMinter";
+import { JettonMinter, LockType, lockTypeToInt } from "../wrappers/JettonMinter";
 import { compile, NetworkProvider } from "@ton/blueprint";
 import { addressToString, assert, base64toCell, jettonWalletCodeFromLibrary } from "../wrappers/ui-utils";
 import { Address } from "@ton/core/dist/address/Address";
@@ -88,14 +88,29 @@ async function showJettonMinterInfo(provider: NetworkProvider){
 }
 
 /***
+ * 设置wallet状态
+ * @param provider
+ */
+async function sendLockWallet(provider: NetworkProvider){
+  let jettonMinterContract = JettonMinter.createFromAddress(Address.parse(deployedMinterContractAddress));
+  const openContract = provider.open(jettonMinterContract);
+  const walletAddress = Address.parse("UQCGe5hXBUGxsr9fatq2IuolGPwNMqdR7BTvNlGSzL_C_Fna");
+  await openContract.sendLockWallet(provider.sender(),
+    walletAddress,
+    'in'
+  );
+}
+
+/***
  * 获取owner对应的jetton wallet地址
  * @param provider
  */
 async function getWalletAddress(provider: NetworkProvider){
-  let jettonMinter = JettonMinter.createFromAddress(Address.parse(deployedMinterContractAddress));
-  const openContract = provider.open(jettonMinter);
+  const jettonMinterContract = JettonMinter.createFromAddress(Address.parse(deployedMinterContractAddress));
+  const openContract = provider.open(jettonMinterContract);
   const ownerAddress = Address.parse("UQCSOoc8TPYbwS-zOM6t9R5Msrw7P-dhL_ghgVP2o1A-2j3u");
   const jettionWalletAddress = await openContract.getWalletAddress(ownerAddress);
   console.log(jettionWalletAddress);  // XZY代币对应的wallet address: EQASWiqCFd-nWmOsD0PEagcEmK19L6Q541vgJsM-XMr36pTu
+  return jettionWalletAddress;
 }
 
